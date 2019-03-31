@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "trinity.fullname" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "trinity.name" . }}
+    helm.sh/chart: {{ include "trinity.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "trinity.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "trinity.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - --trinity-root-dir
+            - {{ .Values.rootDir }}
+            - --network-id
+            - {{ .Values.networkID | quote }}
+            - --sync-mode
+            - {{ .Values.syncMode }}
+            - --log-level
+            - {{ .Values.logLevel }}
+            - --file-log-level
+            - {{ .Values.fileLogLevel }}
+            - --port
+            - {{ .Values.port | quote }}
+            - --max-peers
+            - {{ .Values.maxPeers | quote }}
+            {{- if .Values.discV5 }}
+            - --discv5
+            {{- end}}
+            {{- if .Values.txPool }}
+            - --tx-pool
+            {{- end}}
+            {{- if .Values.ethstatsEnabled }}
+            - "--ethstats"
+            - "--ethstats-server-url"
+            - {{ .Values.ethstatsServerURL }}
+            - "--ethstats-server-secret"
+            - "${ETHSTATS_SECRET}"
+            - "--ethstats-node-contact"
+            - {{ .Values.ethstatsNodeContact }}
+            {{- end}}
+          env:
+            - name: ETHSTATS_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: WS_SECRET
+          ports:
+            - name: p2p
+              containerPort: {{ .Values.service.p2pPort }}
+              protocol: UDP
+          volumeMounts:
+            - name: data
+              mountPath: {{ .Values.rootDir }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: data
+        {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.existingClaim | default (include "trinity.fullname" .) }}
+        {{- else }}
+          emptyDir: {}
+        {{- end -}}

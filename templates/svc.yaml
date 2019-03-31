@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "trinity.fullname" . }}
+  labels:
+    app: {{ template "trinity.name" . }}
+    chart: {{ template "trinity.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  ports:
+    - name: p2p
+      port: {{ .Values.service.p2pPort }}
+      targetPort: p2p
+  selector:
+    app: {{ template "trinity.name" . }}
+    release: {{ .Release.Name }}
